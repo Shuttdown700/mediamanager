@@ -2,9 +2,9 @@
 
 def import_libraries():
     import pip
-    aliases = {'numpy':'np'}
-    libraries = ['alive_progress','colorama','ffmpeg','glob','mutagen','os','numpy','pymediainfo','random','sys',
-                 'selenium','shutil','time','urllib','urllib.request','warnings','win32file']
+    aliases = {'numpy':'np','pandas':'pd'}
+    libraries = ['alive_progress','colorama','ffmpeg','glob','json','mutagen','os','numpy','pymediainfo','random','sys',
+                 'pandas','selenium','shutil','time','urllib','urllib.request','warnings','win32file']
     for l in libraries: 
         try:
             exec(f"import {l} as {aliases[l]}") if l in list(aliases.keys()) else exec(f"import {l}")
@@ -21,8 +21,10 @@ import_libraries()
 import alive_progress
 import colorama
 import glob
+import json
 import os
 import numpy as np
+import pandas as pd
 import shutil
 import sys
 import string
@@ -59,12 +61,13 @@ def read_alexandria(parent_dirs,extension = '.mp4'):
         A list of all filenames, excluding the extension.
     all_paths : list
         A list of all paths to corresponding files.
+        
     """
     all_titles, all_paths = [], []
     for p in parent_dirs:
         subDirectories = sorted(list([x[0].replace('\\','/') for x in os.walk(p) if 'metadata' not in x[0] and (x[0][-1] in string.digits or 'Movies' in x[0])]))
         for sd in subDirectories:
-            l = sorted([gg.replace('\\','/') for gg in glob.glob("{}/*{}".format(sd.replace('\\','/'),extension))])
+            l = sorted([gg.replace('\\','/') for gg in glob.glob(f"{sd}/*{extension}")])
             for i in range(len(l)):
                 all_titles.append('.'.join(l[i].split('/')[-1].split('.')[:-1]))
                 all_paths.append('/'.join(l[i].split('/')[:-1]))
@@ -72,12 +75,13 @@ def read_alexandria(parent_dirs,extension = '.mp4'):
 
 def get_time():
     """
-    Returns current time
+    Returns current time.
     
     Returns
     -------
     curr_time: str
-        Time in 'TTTT on DDMMMYYYY' format
+        Time in 'TTTT on DDMMMYYYY' format.
+        
     """
     time_dict = {'dotw':time.ctime().split()[0],'month':time.ctime().split()[1],'day':time.ctime().split()[2],
                  'hour_24_clock':time.ctime().split()[3].split(':')[0],'minute':time.ctime().split()[3].split(':')[1],
@@ -89,16 +93,17 @@ def get_time():
 
 def get_time_elapsed(start_time):
     """
-    Prints the elapsed time since the input time
+    Prints the elapsed time since the input time.
     
     Parameters
     ----------
     start_time : float
-        Time as a floating pouint number in seconds
+        Time as a floating pouint number in seconds.
 
     Returns
     -------
     None.
+    
     """
     hour_name, min_name, sec_name = 'hours', 'minutes', 'seconds'
     t_sec = round(time.time() - start_time)
@@ -116,17 +121,31 @@ def does_drive_exist(letter):
     Parameters
     ----------
     letter : str
-        Drive letter [A-Z] (Windows)
+        Drive letter [A-Z] (Windows).
 
     Returns
     -------
     bool
         Returns TRUE if drive exists, otherwise returns FALSE.
-
+        
     """
     return (win32file.GetLogicalDrives() >> (ord(letter.upper()) - 65) & 1) != 0
 
 def get_drive_name(letter):
+    """
+    Gets drive name from letter.
+
+    Parameters
+    ----------
+    letter : str
+        Drive letter [A-Z] (Windows).
+
+    Returns
+    -------
+    str
+        Return name of the drive, as displayed in file explorer.
+
+    """
     return win32api.GetVolumeInformation(f"{letter}:/")[0]
 
 def get_drive_size(letter):
@@ -136,9 +155,9 @@ def get_file_size(file_with_path):
     if file_with_path[-4] == '.': return os.path.getsize(file_with_path)/10**9
     else: return os.path.getsize(file_with_path+'.mp4')/10**9
 
-def get_show_files(pd,show):
-    file_names, file_paths = read_alexandria([f'{pd}:/Movies/',f'{pd}:/Shows/',f'{pd}:/Anime/'],extension = '.mp4')
-    show_files_with_path1 = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] != f'{pd}:/Movies']
+def get_show_files(show):
+    file_names, file_paths = read_alexandria([movie_dir,show_dir,anime_dir],extension = '.mp4')
+    show_files_with_path1 = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] != f'{primary_drive}:/Movies']
     show_files_with_path2 = [sfwp for sfwp in show_files_with_path1 if show == sfwp.split('/')[2].split('(')[0].strip()]
     return show_files_with_path2
 
@@ -149,7 +168,7 @@ def get_show_size(show_files_with_path):
 
 ### FILE THUMBNAIL FUNCTIONS ###
     
-def create_driver(driver_dir):
+def create_driver():
     options = webdriver.ChromeOptions(); options.add_argument("headless")
     return webdriver.Chrome(rf"{driver_dir}/chromedriver.exe", chrome_options=options)
 
@@ -160,15 +179,14 @@ def remove_duplicate_tv_shows(all_titles):
         else: all_titles2.append(' '.join(at.split()[:-1]))
     return sorted(list(set(all_titles2)))
 
-def get_mp4s(mp4_dir):
+def get_mp4s(mp4_dir,extension='.mp4'):
     # os.chdir(mp4_dir)
-    film_paths = glob.glob(f"{mp4_dir}*.mp4")
+    film_paths = [gg.replace('\\','/') for gg in glob.glob(f"{mp4_dir}*.{extension}")]
     film_names_and_years = []
     for i in range(len(film_paths)): film_names_and_years.append(".".join(film_paths[i].split('/')[-1].split('.')[:-1]))
     return film_paths, film_names_and_years
 
-def get_cover_files(cover_dir):
-    # os.chdir(cover_dir)
+def get_cover_files():
     cover_paths = [gg.replace('\\','/') for gg in glob.glob(f"{cover_dir}*.jpg")]
     cover_names = []
     for i in range(len(cover_paths)): cover_names.append(".".join(cover_paths[i].split('/')[-1].split('.')[:-1]))
@@ -181,7 +199,7 @@ def compare(film_names_and_years, cover_names):
         else: films_with_covers.append(f)
     return films_without_covers, films_with_covers
 
-def save_cover(driver,name,search,cover_dir):
+def save_cover(driver,name,search):
     driver.get('https://www.google.ca/imghp?hl=en&tab=ri&authuser=0&ogbl')
     try:
         search_box = driver.find_element_by_xpath('//*[@id="sbtc"]/div[2]/div[2]/input')
@@ -195,32 +213,31 @@ def save_cover(driver,name,search,cover_dir):
                 search_box = driver.find_element_by_xpath('/html/body/div[1]/div[3]/form/div[1]/div[1]/div[1]/div/div[2]/input')    
     search_box.send_keys('{} movie poster IMDb'.format(search))
     search_box.send_keys(Keys.ENTER)
-    # os.chdir(cover_dir)
     img = driver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[1]/a[1]/div[1]/img')
     urllib.request.urlretrieve(img.get_attribute('src'),f'{cover_dir}{name} COVER.jpg')
 
-def get_covers(cover_dir,driver_dir,movie_dir,show_dir,anime_dir):
-    cover_paths , cover_names = get_cover_files(cover_dir)
+def get_covers():
+    cover_paths , cover_names = get_cover_files()
     all_titles = remove_duplicate_tv_shows(read_alexandria([movie_dir,show_dir,anime_dir])[0])
     films_without_covers, films_with_covers = compare(all_titles, cover_names)
     index = 0
     while len(films_without_covers) > 0:
         if index == 0: print('\nFetching film and show covers...')
-        driver = create_driver(driver_dir)
+        driver = create_driver()
         for fwc in films_without_covers:
             search = fwc
             if search.strip()[-1] != ")": search += ' TV SHOW'
             print(search)
-            save_cover(driver,fwc,search,cover_dir)
+            save_cover(driver,fwc,search)
             time.sleep(np.random.exponential(0.5))
         driver.quit()
         film_paths, film_names_and_years = get_mp4s(movie_dir)
-        cover_paths , cover_names = get_cover_files(cover_dir)
+        cover_paths , cover_names = get_cover_files()
         films_without_covers, films_with_covers = compare(film_names_and_years, cover_names)
 
-def apply_covers_to_movies(cover_dir,driver_dir,movie_dir):
+def apply_covers_to_movies():
     film_paths, film_names_and_years = get_mp4s(movie_dir)
-    cover_paths , cover_names = get_cover_files(cover_dir)
+    cover_paths , cover_names = get_cover_files()
     films_without_covers, films_with_covers = compare(film_names_and_years, cover_names)
     os.chdir(movie_dir)
     with open("_covered_movies.txt",mode='a+',encoding='utf-8') as file:
@@ -245,9 +262,9 @@ def apply_covers_to_movies(cover_dir,driver_dir,movie_dir):
                         print('Failed: '+ str(f))
                         continue
 
-def apply_covers_to_TV_shows(cover_dir,driver_dir,movie_dir,show_dir,anime_dir):
+def apply_covers_to_TV_shows():
     film_paths, film_names_and_years = get_mp4s(show_dir)
-    cover_paths , cover_names = get_cover_files(cover_dir)
+    cover_paths , cover_names = get_cover_files()
     films_without_covers, films_with_covers = compare(film_names_and_years, cover_names)
     os.chdir(show_dir)
     all_titles, all_paths = read_alexandria([movie_dir,show_dir,anime_dir])
@@ -267,7 +284,8 @@ def apply_covers_to_TV_shows(cover_dir,driver_dir,movie_dir,show_dir,anime_dir):
         if num_to_cover > 0:
             for f in range(len(tv_shows)):
                 if tv_shows[f] not in lines:
-                    if print_statment_bool: print(f'\nApplying thumbnails to {num_to_cover} TV shows...'); print_statment_bool = False
+                    if print_statment_bool and num_to_cover > 1: print(f'\nApplying thumbnails to {num_to_cover} shows...'); print_statment_bool = False
+                    if print_statment_bool and num_to_cover == 1: print(f'\nApplying thumbnails to {num_to_cover} show...'); print_statment_bool = False
                     print(str(tv_shows[f]))
                     try:
                         os.chdir(tv_show_paths[f])
@@ -291,41 +309,72 @@ def read_whitelist(drive_name):
     with open (whitelist_file_name,mode='r') as file:
         return [w.strip() for w in file.readlines()]
 
-def do_I_backup_this_movie(drive,primary_drive,movie,no_movie_drives = ['ColdStorage']):
-    movie_list = []
-    noBackup_movieFiles = []
-    keywords = []
-    drive_name = get_drive_name(drive)
-    if drive_name in no_movie_drives:
-        return False
-    elif drive_name == 'AnimeStorage':
-        with open(f'{primary_drive}:/Movies/_covered_movies.txt',mode='r',encoding='utf-8') as mvs:
-            all_mvs = [l.strip() for l in mvs.readlines()]
-        with open('C:/Users/brend/Documents/Coding Projects/Alexandria/Show Lists/anime_movies.txt',mode='r',encoding='utf-8') as amvs:
-            anime_mvs = [l.strip() for l in amvs.readlines()]
-        movie_list = [m for m in all_mvs if m not in anime_mvs]
+def movie_score_filter(threshold = 5.99):
+    directory = 'V:/EmbyServerCache/omdb'
+    dirs = sorted([x[0].replace('\\','/') for x in os.walk(directory) if x[0] != directory],key = lambda x: int(x.split('/')[-1]))
+    if dirs == []: dirs = [directory]
+    all_files_omdb = []
+    for d in dirs:
+        all_files_omdb += sorted([gg.replace('\\','/') for gg in glob.glob(f'{d}/*.json')])
+    while [] in all_files_omdb: all_files_omdb.remove([])
+    meta = []
+    for af in all_files_omdb:
+        with open(af,'r',encoding='utf-8') as file:
+            data = json.load(file)
+        try:
+            if int(data['Runtime'].split()[0]) < 60: continue
+            title = data['Title']
+            year = data['Year']    
+            imdbRating = float(data['imdbRating'])
+            metascore = float(data['Metascore'])
+            if imdbRating == '': continue
+            meta.append([title,year,imdbRating,metascore])
+        except (KeyError, IndexError, ValueError):
+            continue
+    df_omdb = pd.DataFrame(meta,columns=['Title','Year','IMDB Rating','Metascore'])
+    df_filters = df_omdb[df_omdb['IMDB Rating'] < threshold].reset_index(drop=True)
+    bad_movies = [f"{df_filters.loc[i,'Title']} ({df_filters.loc[i,'Year']})" for i in range(len(df_filters))]
+    return bad_movies
+
+def do_I_backup_this_movie(drive,movie,bad_movies,no_movie_drives = ['ColdStorage']):
+    if movie not in bad_movies and drive not in no_movie_drives:
+        movie_list = []
+        noBackup_movieFiles = []
+        keywords = []
+        drive_name = get_drive_name(drive)
+        if drive_name in no_movie_drives:
+            return False
+        elif drive_name == 'AnimeStorage':
+            with open(f'{primary_drive}:/Movies/_covered_movies.txt',mode='r',encoding='utf-8') as mvs:
+                all_mvs = [l.strip() for l in mvs.readlines()]
+            with open('C:/Users/brend/Documents/Coding Projects/Alexandria/Show Lists/anime_movies.txt',mode='r',encoding='utf-8') as amvs:
+                anime_mvs = [l.strip() for l in amvs.readlines()]
+            movie_list = [m for m in all_mvs if m not in anime_mvs]
+            if movie in movie_list:
+                return False
+            return True
+        elif drive_name == 'MikesMovies' or drive_name == 'Alexandria' or drive_name == 'DaniMovies':
+            noBackup_movieFiles = ['anime_movies.txt']
+            keywords = ['Scooby-Doo','Pokémon','Chipmunks','Tom and Jerry','Atlas Shrugged','Futurama']
+        elif drive_name == 'Alexandria 2':
+            keywords = ['Scooby-Doo','Pokémon','Chipmunks','Tom and Jerry','Atlas Shrugged','Futurama']
+        os.chdir(r'C:\Users\brend\Documents\Coding Projects\Alexandria\Show Lists')
+        for nbmf in noBackup_movieFiles:
+            with open(nbmf,mode='r',encoding='utf-8') as movie_file:
+                movie_list += [m.strip() for m in movie_file.readlines()]
         if movie in movie_list:
             return False
+        for k in keywords:
+            if k in movie:
+                return False
         return True
-    elif drive_name == 'MikesMovies' or drive_name == 'Alexandria' or drive_name == 'DaniMovies':
-        noBackup_movieFiles = ['anime_movies.txt']
-        keywords = ['Scooby-Doo','Pokémon','Chipmunks','Tom and Jerry','Atlas Shrugged','Futurama']
-    elif drive_name == 'Alexandria 2':
-        keywords = ['Scooby-Doo','Pokémon','Chipmunks','Tom and Jerry','Atlas Shrugged','Futurama']
-    os.chdir(r'C:\Users\brend\Documents\Coding Projects\Alexandria\Show Lists')
-    for nbmf in noBackup_movieFiles:
-        with open(nbmf,mode='r',encoding='utf-8') as movie_file:
-            movie_list += [m.strip() for m in movie_file.readlines()]
-    if movie in movie_list:
+    else:
         return False
-    for k in keywords:
-        if k in movie:
-            return False
-    return True
 
-def backup(pd,bd,no_movie_drives = ['ColdStorage']):
+
+def backup(bd,no_movie_drives = ['ColdStorage']):
     def backup_function(backup_tuples):
-        for bt in backup_tuples: print('Backing up: {}'.format(bt[0].split('/')[-1][:-4].strip())); shutil.copyfile(bt[0], bt[1])
+        for bt in backup_tuples: print('Backing up: {}\n'.format(bt[0].split('/')[-1][:-4].strip())); shutil.copyfile(bt[0], bt[1])
     def split_backup_tuples(num_threads,backup_tuples):
         backup_tracker = [[] for nt in range(num_threads)]
         i = 0
@@ -333,19 +382,19 @@ def backup(pd,bd,no_movie_drives = ['ColdStorage']):
             backup_tracker[i].append(bt); i += 1
             if i == num_threads: i = 0
         return backup_tracker
-    def integrity_assurance(pd,bd):
-        primary_titles, primary_paths = read_alexandria([f'{pd}:/Movies/',f'{pd}:/Shows/',f'{pd}:/Anime/'])
+    def integrity_assurance(bd):
+        primary_titles, primary_paths = read_alexandria([movie_dir,show_dir,anime_dir])
         backup_titles, backup_paths = read_alexandria([f'{bd}:/Movies/',f'{bd}:/Shows/',f'{bd}:/Anime/'])
         primary_items = [(primary_paths[i] + '/' +primary_titles[i])[1:] for i in range(len(primary_titles))]
         backup_items = [(backup_paths[i] + '/' +backup_titles[i])[1:] for i in range(len(backup_titles))]
         combined_items = sorted(list(set(backup_items)&set(primary_items)))
         with alive_bar(len(combined_items),ctrl_c=False,dual_line=True,title='Integrity Check',bar='classic',spinner='classic') as bar:
             for i in range(len(combined_items)):
-                if os.stat(f'{pd}{combined_items[i]}.mp4').st_size != os.stat(f'{bd}{combined_items[i]}.mp4').st_size:
+                if os.stat(f'{primary_drive}{combined_items[i]}.mp4').st_size != os.stat(f'{bd}{combined_items[i]}.mp4').st_size:
                     print(f'[{i+1}/{len(combined_items)}] Rewriting {combined_items[i].split("/")[-1]}')
-                    shutil.copyfile(f'{pd+combined_items[i]}.mp4', f'{bd+combined_items[i]}.mp4')
+                    shutil.copyfile(f'{primary_drive+combined_items[i]}.mp4', f'{bd+combined_items[i]}.mp4')
                 bar()
-    primary_titles, primary_paths = read_alexandria([f'{pd}:/Movies/',f'{pd}:/Shows/',f'{pd}:/Anime/'])
+    primary_titles, primary_paths = read_alexandria([movie_dir,show_dir,anime_dir])
     backup_titles, backup_paths = read_alexandria([f'{bd}:/Movies/',f'{bd}:/Shows/',f'{bd}:/Anime/'])
     primary_items = [(primary_paths[i] + '/' +primary_titles[i])[1:] for i in range(len(primary_titles))]
     backup_items = [(backup_paths[i] + '/' +backup_titles[i])[1:] for i in range(len(backup_titles))]
@@ -371,17 +420,18 @@ def backup(pd,bd,no_movie_drives = ['ColdStorage']):
             print(f'Deleting: {bd}{nip}')
             os.remove(f'{bd}{nip}.mp4')
     ### backup primary ###
-    print(f'\nBacking up {drive_colors[pd]}{Style.BRIGHT}{get_drive_name(pd)}{Style.RESET_ALL} files to {drive_colors[bd]}{Style.BRIGHT}{get_drive_name(bd)}{Style.RESET_ALL}...\n')
+    print(f'\nBacking up {drive_colors[primary_drive]}{Style.BRIGHT}{get_drive_name(primary_drive)}{Style.RESET_ALL} files to {drive_colors[bd]}{Style.BRIGHT}{get_drive_name(bd)}{Style.RESET_ALL}...\n')
     drive_name = get_drive_name(bd)
     whitelist = read_whitelist(drive_name)
     backup_tuples = []
+    bad_movies = movie_score_filter()
     for i in range(len(not_in_backup)):
         file = ''.join(not_in_backup[i].split('/')[-1]).strip()
         if ' '.join(file.split()[:-1]) not in whitelist and not_in_backup[i].split('/')[1]!='Movies': continue
         if drive_name in no_movie_drives and not_in_backup[i].split('/')[1]=='Movies': continue 
-        if not do_I_backup_this_movie(bd,pd,file,no_movie_drives): continue
+        if not do_I_backup_this_movie(bd,file,bad_movies,no_movie_drives): continue
         path = '/'.join(not_in_backup[i].split('/')[:-1]).strip()+'/'
-        ppath = pd+path
+        ppath = primary_drive+path
         bpath = bd+path
         original = r'{}{}.mp4'.format(ppath,file)
         target = r'{}{}.mp4'.format(bpath,file)
@@ -418,14 +468,13 @@ def backup(pd,bd,no_movie_drives = ['ColdStorage']):
         t2 = Thread(target=backup_function,args=(backup_tracker[1],))
         t3 = Thread(target=backup_function,args=(backup_tracker[2],))
         t4 = Thread(target=backup_function,args=(backup_tracker[3],))
-        t1.start(); t2.start(); t3.start(); t4.start()
+        t1.start(); time.sleep(0.1); t2.start(); time.sleep(0.1); t3.start(); time.sleep(0.1); t4.start()
         t1.join(); t2.join(); t3.join(); t4.join()
     else:
         backup_tracker = split_backup_tuples(1,backup_tuples)
         backup_function(backup_tracker[0])
-    integrity_assurance(pd,bd)
-    drives = [pd,bd]
-    for i,d in enumerate(drives):
+    integrity_assurance(bd)
+    for i,d in enumerate([primary_drive,bd]):
         disk_obj = shutil.disk_usage(f'{d}:/')
         gb_remaining = int(disk_obj[2]/10**9)
         if i == 0: print(f'\n{gb_remaining:,} GB of space left on {drive_colors[d]}{Style.BRIGHT}{get_drive_name(d)}{Style.RESET_ALL}...')    
@@ -493,10 +542,10 @@ def find_duplicates_and_show_data(drive):
                 duplicates_file.write(d+'\n')
         return duplicates
 
-def check_backup_surface_area(pd, drives):
+def check_backup_surface_area(drives):
     connected_drives = []
     mp4_tracker = {}
-    drives += [pd]
+    drives += [primary_drive]
     for d in drives:
         if not does_drive_exist(d): continue
         connected_drives.append(d)
@@ -514,17 +563,17 @@ def check_backup_surface_area(pd, drives):
     for m in mp4_keys:
         count = mp4_tracker[m]
         if count == 1:
-            one_count_list.append(f'{pd}:/{m}')
+            one_count_list.append(f'{primary_drive}:/{m}')
         elif count == 2:
-            two_count_list.append(f'{pd}:/{m}')
+            two_count_list.append(f'{primary_drive}:/{m}')
         elif count >= 3:
-            threePlus_count_list.append(f'{pd}:/{m}')
+            threePlus_count_list.append(f'{primary_drive}:/{m}')
     with open('not_backed_up_files.txt',mode='w',encoding='utf-8') as file:
         file.seek(0)
         ocls = []
         for i,ocl in enumerate(sorted(list(set([' '.join(o.split('/')[-1].split()[:-1]) for o in one_count_list if o.split('/')[1] != 'Movies'])))):
             if i == 0: print('\nThe following shows are not backed up:')
-            show_size = get_show_size(get_show_files(pd,ocl))
+            show_size = get_show_size(get_show_files(ocl))
             if ocl.split('(')[0].strip() in ocls: continue
             ocls.append(ocl.split('(')[0].strip())
             file.write(f'{ocl}: {show_size} GB\n')
@@ -545,13 +594,13 @@ def check_backup_surface_area(pd, drives):
     print(f'{(triplePlusData/totalData)*100:.2f}% of data ({triplePlusData/1000:,.2f} TB) is backed up more than once')
     print(f'{triplePlusCountPercent:.2f}% of files are backed up more than once')
 
-def determine_backup_feasibility(pd, bd, no_movie_drives = ['ColdStorage']):
+def determine_backup_feasibility(bd, no_movie_drives = ['ColdStorage']):
     drive_name = get_drive_name(bd)
     drive_size = get_drive_size(bd)
     whitelist = read_whitelist(drive_name)
-    file_names, file_paths = read_alexandria([f'{pd}:/Movies/',f'{pd}:/Shows/',f'{pd}:/Anime/'])
-    tv_names_with_path = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] != f'{primary_drive}:/Movies']
-    movie_names_with_path = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] == f'{primary_drive}:/Movies']  
+    file_names, file_paths = read_alexandria([movie_dir,show_dir,anime_dir])
+    tv_names_with_path = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] != movie_dir[:-1]]
+    movie_names_with_path = [file_paths[i]+'/'+file_names[i]+'.mp4' for i in range(len(file_paths)) if file_paths[i] == movie_dir[:-1]]  
     curr_file_names, curr_file_paths = read_alexandria([f'{bd}:/Movies/',f'{bd}:/Shows/',f'{bd}:/Anime/'])
     curr_file_names = [curr_file_names[i] for i in range(len(curr_file_paths)) if curr_file_paths[i] != f'{bd}:/Movies']
     curr_shows = list(set([' '.join(cfn.split()[:-1]) for cfn in curr_file_names]))
@@ -561,9 +610,10 @@ def determine_backup_feasibility(pd, bd, no_movie_drives = ['ColdStorage']):
         for csniw in curr_shows_not_in_whitelist:
             print('> '+csniw)
     size_needed = 0
+    bad_movies = movie_score_filter()
     for mnwp in movie_names_with_path:
         if drive_name not in no_movie_drives:
-            if do_I_backup_this_movie(bd,pd,mnwp.split('/')[-1].split('.mp4')[0],no_movie_drives):
+            if do_I_backup_this_movie(bd,mnwp.split('/')[-1].split('.mp4')[0],bad_movies,no_movie_drives):
                   size_needed += get_file_size(mnwp)
     for tnwp in tv_names_with_path:
         name = ' '.join(tnwp.split('/')[-1].split()[:-1])
@@ -588,55 +638,68 @@ def get_drive_stats(drive):
     
 ### MAIN FUNCTION ###
 
-def main(primary_drive,backup_drive,no_movie_drives):
+def main(backup_drive,no_movie_drives):
     # backup_drive = 'E'
-    cover_dir = f"{primary_drive}:/MP4_COVERS/"
-    driver_dir = 'C:/Users/brend/'
-    movie_dir = f"{primary_drive}:/Movies/"
-    show_dir = f'{primary_drive}:/Shows/'
-    anime_dir = f'{primary_drive}:/Anime/'
     print(f'\nPrimary Drive: {drive_colors[primary_drive]}{Style.BRIGHT}{get_drive_name(primary_drive)} ({primary_drive} drive){Style.RESET_ALL}')
     print(f'Backup Drive: {drive_colors[backup_drive]}{Style.BRIGHT}{get_drive_name(backup_drive)} ({backup_drive} drive){Style.RESET_ALL}')
     ###
-    get_covers(cover_dir,driver_dir,movie_dir,show_dir,anime_dir)
+    get_covers()
     ###
-    apply_covers_to_movies(cover_dir,driver_dir,movie_dir)
+    apply_covers_to_movies()
     ###
-    apply_covers_to_TV_shows(cover_dir,driver_dir,movie_dir,show_dir,anime_dir)
+    apply_covers_to_TV_shows()
     ###
-    if determine_backup_feasibility(primary_drive,backup_drive,no_movie_drives):
-        backup(primary_drive,backup_drive,no_movie_drives)
+    if determine_backup_feasibility(backup_drive,no_movie_drives):
+        backup(backup_drive,no_movie_drives)
 
-def set_color_scheme(primary_drive,drives):
-    global drive_colors
-    drive_colors = {primary_drive:Fore.YELLOW}
+def set_color_scheme(drives):
+    """
+    Defines global variable drive_colors in support of print statements
+
+    Parameters
+    ----------
+    drives : list
+        List of backup drive letters.
+
+    Returns
+    -------
+    None.
+
+    """
+    global drive_colors; drive_colors = {primary_drive:Fore.YELLOW}
     possible_colors = [Fore.GREEN,Fore.MAGENTA,Fore.RED,Fore.BLUE,Fore.CYAN]
     for i,d in enumerate(drives):
         drive_colors.update({d:possible_colors[i % len(possible_colors)]})
 
 if __name__ == '__main__':
+    # sets global variables
+    global primary_drive; primary_drive = 'V'
+    global cover_dir; cover_dir = f"{primary_drive}:/MP4_COVERS/"
+    global driver_dir; driver_dir = 'C:/Users/brend/'
+    global movie_dir; movie_dir = f"{primary_drive}:/Movies/"
+    global show_dir; show_dir = f'{primary_drive}:/Shows/'
+    global anime_dir; anime_dir = f'{primary_drive}:/Anime/'
     # starts time
     start_time = time.time()
     # define the primary_drive
-    primary_drive = 'V'
     # define the drives to NOT backup into
     drive_blacklist = ['C','T',primary_drive]
     # searches for backup drives
     drives = [sau for sau in string.ascii_uppercase if does_drive_exist(sau) and sau != os.getcwd()[0] and sau not in drive_blacklist]
     # sets color scheme for print statements relating to drives
-    set_color_scheme(primary_drive,drives)
+    set_color_scheme(drives)
     # defines drives that should not backup movies (from <drive>:/Movies directory)
     no_movie_drives = ['ColdStorage'] # drives with no movies
     # prints time the script starts
     print(f'\nMain process initiated at {get_time()}...\n\n#################################')
     for backup_drive in drives:
-        main(primary_drive,backup_drive,no_movie_drives)
+        main(backup_drive,no_movie_drives)
         print('\n#################################')
     # searches for duplicate files within shows in the primary drive
     duplicates = find_duplicates_and_show_data(primary_drive)
     time.sleep(1)
     # determines what percentage of files are backed up at different levels
-    check_backup_surface_area(primary_drive,drives)
+    check_backup_surface_area(drives)
     # fetches file stats for the primary drive
     get_drive_stats(primary_drive)
     print('\n#################################')
