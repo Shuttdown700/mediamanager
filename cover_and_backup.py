@@ -181,7 +181,7 @@ def remove_duplicate_tv_shows(all_titles):
 
 def get_mp4s(mp4_dir,extension='.mp4'):
     # os.chdir(mp4_dir)
-    film_paths = [gg.replace('\\','/') for gg in glob.glob(f"{mp4_dir}*.{extension}")]
+    film_paths = [gg.replace('\\','/') for gg in glob.glob(f"{mp4_dir}*{extension}")]
     film_names_and_years = []
     for i in range(len(film_paths)): film_names_and_years.append(".".join(film_paths[i].split('/')[-1].split('.')[:-1]))
     return film_paths, film_names_and_years
